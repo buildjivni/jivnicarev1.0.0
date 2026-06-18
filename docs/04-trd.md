@@ -365,6 +365,13 @@ QUEUE CACHE:
   Invalidate: immediately on every state change
   Miss: fresh DB fetch
 
+WAITLIST DISPATCH — FIFO AUTO-BOOK:
+  When a queue slot opens (doctor changes status to AVAILABLE, a patient cancels, or the daily limit is increased), the system auto-dispatches the oldest waitlist entry:
+  1. Pull the oldest waitlist record (`createdAt` ascending) for the doctor.
+  2. Create a new `QueueToken` with status `BOOKED` directly for that patient (no verification timer, no competition, no action needed from the patient).
+  3. Send an informational, non-urgent notification: "Good news — your slot with Dr. [Name] is confirmed today, Token #[X]. Cancel from the app if you can't make it."
+  4. If the patient cannot attend, they use the existing "Cancel Booking" flow to free the slot. If they do not show up, it is marked as `NO_SHOW` at the clinic. No background expiry or polling timers exist for waitlist claims.
+
 04:00 AM IST CRON (Vercel Cron):
   1. BOOKED/AWAITING_ARRIVAL tokens → EXPIRED
   2. Daily queues → CLOSED
