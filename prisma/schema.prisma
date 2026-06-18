@@ -1,0 +1,444 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING_ACTIVATION
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum DoctorStatus {
+  AVAILABLE
+  BREAK
+  BUSY
+  OFFLINE
+}
+
+enum QueueStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+  EXPIRED
+}
+
+enum TokenStatus {
+  BOOKED
+  AWAITING_ARRIVAL
+  PAYMENT_PENDING
+  READY
+  CALLED
+  IN_CONSULTATION
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+  EXPIRED
+}
+
+enum TokenType {
+  ONLINE
+  WALKIN
+}
+
+enum QueueType {
+  REGULAR
+  EMERGENCY
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  TOKEN_CALLED
+  QUEUE_UPDATE
+  DOCTOR_STATUS_CHANGE
+  VERIFICATION_STATUS
+  SYSTEM
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VERIFY
+  REJECT
+  BAN
+  UNBAN
+  BOOK
+  CANCEL
+  ADVANCE
+  COMPLETE
+  NO_SHOW
+  STATUS_CHANGE
+  EMERGENCY_ENABLE
+  EMERGENCY_DISABLE
+}
+
+enum PartnerTier {
+  EARLY_PARTNER
+  STANDARD
+  PREMIUM
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model User {
+  id            String    @id @default(uuid())
+  phone         String    @unique
+  name          String?
+  email         String?   @unique
+  role          Role      @default(PATIENT)
+  isActive      Boolean   @default(true)
+  isBanned      Boolean   @default(false)
+  bannedAt      DateTime?
+  bannedReason  String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      AuthSession[]
+  doctor        Doctor?
+  tokens        QueueToken[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  waitlists     Waitlist[]
+
+  @@index([phone])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+model AuthSession {
+  id          String   @id @default(uuid())
+  userId      String
+  token       String   @unique
+  deviceInfo  String?
+  ipAddress   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model Doctor {
+  id                      String             @id @default(uuid())
+  userId                  String             @unique
+  internalDoctorId        String             @unique
+  slug                    String             @unique
+
+  name                    String
+  phone                   String
+  email                   String?
+  gender                  Gender?
+  profilePhoto            String?
+  bio                     String?
+  languages               String[]           @default(["Hindi"])
+
+  speciality              String
+  qualifications          String[]           @default([])
+  experienceYears         Int                @default(0)
+  registrationNumber      String
+  expertiseTags           String[]           @default([])
+  diseases                String[]           @default([])
+  procedures              String[]           @default([])
+
+  clinicName              String
+  clinicAddress           String
+  clinicCity              String
+  clinicDistrict          String
+  clinicPhotos            String[]           @default([])
+  clinicPincode           String?
+  clinicLatitude          Float?
+  clinicLongitude         Float?
+
+  operatorName            String
+  operatorMobile          String
+
+  receptionist1Name       String?
+  receptionist1Phone      String?
+  receptionist2Name       String?
+  receptionist2Phone      String?
+  receptionist3Name       String?
+  receptionist3Phone      String?
+
+  verificationStatus      VerificationStatus @default(PENDING_ACTIVATION)
+  verifiedAt              DateTime?
+  verifiedBy              String?
+  rejectionReason         String?
+  documents               String[]           @default([])
+
+  isEmergencyEnabled      Boolean            @default(false)
+  emergencyCapacity       Int                @default(0)
+  emergencyApprovedAt     DateTime?
+  emergencyApprovedBy     String?
+  emergencyPendingRequest Boolean            @default(false)
+
+  weeklySchedule          Json?
+  bookingWindowStart      String?
+  bookingWindowEnd        String?
+
+  dailyTokenLimit         Int                @default(30)
+  consultationFee         Int                @default(0)
+  currentStatus           DoctorStatus       @default(OFFLINE)
+  isAcceptingBookings     Boolean            @default(false)
+  breakMessage            String?
+  canShowOnPublic         Boolean            @default(false)
+
+  lifetimePatientsServed  Int                @default(0)
+  jivnicarePatientsServed Int                @default(0)
+
+  partnerTier             PartnerTier        @default(STANDARD)
+
+  registrationStep        Int                @default(1)
+  registrationComplete    Boolean            @default(false)
+
+  deletedAt               DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  user                    User               @relation(fields: [userId], references: [id])
+  queues                  DailyQueue[]
+  platformPricing         PlatformPricing?
+  waitlists               Waitlist[]
+
+  @@index([slug])
+  @@index([speciality])
+  @@index([clinicDistrict])
+  @@index([clinicCity])
+  @@index([verificationStatus])
+  @@index([currentStatus])
+  @@index([canShowOnPublic])
+  @@index([partnerTier])
+  @@map("doctors")
+}
+
+model DailyQueue {
+  id             String      @id @default(uuid())
+  doctorId       String
+  date           DateTime
+  status         QueueStatus @default(ACTIVE)
+  type           QueueType   @default(REGULAR)
+  currentToken   Int         @default(0)
+  totalTokens    Int         @default(0)
+  dailyLimit     Int
+  emergencySlots Int         @default(0)
+  openedAt       DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  doctor         Doctor      @relation(fields: [doctorId], references: [id])
+  tokens         QueueToken[]
+
+  @@unique([doctorId, date, type])
+  @@index([doctorId])
+  @@index([date])
+  @@index([type])
+  @@map("daily_queues")
+}
+
+model QueueToken {
+  id                String      @id @default(uuid())
+  queueId           String
+  patientId         String?
+  tokenNumber       Int
+  status            TokenStatus @default(BOOKED)
+  type              TokenType   @default(ONLINE)
+
+  walkinName        String?
+  walkinPhone       String?
+  walkinAddress     String?
+
+  paymentVerified   Boolean     @default(false)
+  paymentVerifiedAt DateTime?
+  verifiedBy        String?
+
+  internalNotes     String?
+
+  bookedAt          DateTime    @default(now())
+  calledAt          DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  queue             DailyQueue  @relation(fields: [queueId], references: [id])
+  patient           User?       @relation(fields: [patientId], references: [id])
+
+  @@index([queueId])
+  @@index([patientId])
+  @@index([status])
+  @@index([tokenNumber])
+  @@map("queue_tokens")
+}
+
+model PlatformPricing {
+  id              String      @id @default(uuid())
+  doctorId        String      @unique
+  monthlyFee      Float       @default(2999)
+  perBookingFee   Float       @default(29)
+  discountPercent Int         @default(100)
+  partnerTier     PartnerTier @default(EARLY_PARTNER)
+  freeUntil       DateTime?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  doctor          Doctor      @relation(fields: [doctorId], references: [id])
+
+  @@map("platform_pricing")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  user      User               @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?
+  role        Role?
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ArchivedRecord {
+  id           String   @id @default(uuid())
+  entityType   String
+  entityId     String
+  data         Json
+  archivedBy   String?
+  archivedAt   DateTime @default(now())
+  reason       String?
+
+  @@index([entityType])
+  @@index([entityId])
+  @@map("archived_records")
+}
+
+model Waitlist {
+  id          String   @id @default(uuid())
+  doctorId    String
+  userId      String?
+  phone       String
+  name        String?
+  notified    Boolean  @default(false)
+  notifiedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  doctor      Doctor   @relation(fields: [doctorId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([doctorId])
+  @@index([phone])
+  @@map("waitlists")
+}
+
+model DoctorRequest {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String
+  district    String
+  speciality  String
+  contacted   Boolean  @default(false)
+  contactedAt DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([district])
+  @@index([speciality])
+  @@index([contacted])
+  @@map("doctor_requests")
+}
+
+model SearchLog {
+  id          String   @id @default(uuid())
+  query       String
+  district    String?
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([query])
+  @@index([district])
+  @@index([createdAt])
+  @@map("search_logs")
+}
+
+model District {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  state     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("districts")
+}
+
+model Speciality {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  icon      String?
+  tier      Int      @default(1)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("specialities")
+}
