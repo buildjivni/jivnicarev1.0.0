@@ -10,7 +10,7 @@
 2. NEVER expose raw error messages to frontend
 3. NEVER skip rate limiting on any sensitive endpoint
 4. NEVER allow admin route without TOTP verification
-5. NEVER implement OAuth or third-party login in V1
+5. Patients authenticate via phone + OTP only. Doctors and the Admin authenticate via Google OAuth (NextAuth.js + jose for session signing). No other third-party login providers are permitted in V1.
 6. NEVER log OTP values or JWT secrets anywhere
 7. NEVER use raw SQL — Prisma ORM only (except JVC sequence)
 8. ALL auth logic in src/lib/services/auth.service.ts ONLY
@@ -294,6 +294,13 @@ export async function applyRateLimit(
 }
 ```
 
+### SMS Abuse Prevention
+On the public OTP endpoint (`/api/v1/auth/send-otp`), a layered defense is required:
+1. **Per-Phone-Number limit:** Max 5 OTP requests per phone number per 15-minute window.
+2. **Per-IP limit:** Max 10 OTP requests per IP address per hour, backed by a `RateLimitLog` check.
+3. **Bot Detection:** Integration of Cloudflare Turnstile token validation. The client must submit the Turnstile token, and the server verifies it against the Turnstile verify API before dispatching the OTP.
+4. **Georestrictions & Format Checks:** Only `+91` Indian mobile numbers are accepted. Validate against a 10-digit format starting with 6–9. Manual onboarding is used for foreign doctor edge cases, bypassing the public OTP flow.
+
 ---
 
 ## STEP 9 — Rate Limit Reference Table
@@ -444,6 +451,12 @@ export function verifyAdminTOTP(token: string): boolean {
   })
   return totp.validate({ token, window: 1 }) !== null
 }
+
+### Admin Authentication (V1 — Single Admin)
+- The platform uses a single admin account in V1. There is no private/unguessable login URL; the Admin logs in at `/admin/login` using Google OAuth.
+- **First-Time Login Setup:** Upon first successful Google OAuth login, the admin is presented with a TOTP setup page displaying a QR code (and manual secret key fallback). After the admin enters the 6-digit TOTP code to confirm, the setup generates 10 backup codes (shown exactly once, requiring explicit "I've saved these, continue" acknowledgment).
+- **Subsequent Logins:** Requires either the Google OAuth login + a 6-digit TOTP code, or a single-use backup code.
+- **Backup Code Recovery:** Admin can use one unused backup code to authenticate. Login via backup code marks that code as used (`used = true`). The admin can regenerate backup codes in settings, which requires re-entering the current active TOTP code.
 ```
 
 ---
@@ -618,44 +631,7 @@ export async function GET() {
 
 ---
 
-## STEP 16 — First Admin Setup
-
-Create src/app/api/admin/setup/route.ts:
-
-```typescript
-import { prisma }  from '@/lib/prisma'
-import { apiSuccess, apiError } from '@/lib/utils/api-response'
-import { z } from 'zod'
-
-// ONE-TIME ROUTE — auto-disables after first admin created
-export async function POST(req: Request) {
-  // Check if admin already exists
-  const existing = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
-  if (existing) {
-    return apiError('Setup already complete.', 403)
-  }
-
-  const Schema = z.object({ phone: z.string().length(10), name: z.string().min(2) })
-  const body   = Schema.safeParse(await req.json())
-  if (!body.success) return apiError('Invalid input', 400)
-
-  const admin = await prisma.user.create({
-    data: {
-      phone: body.data.phone,
-      name: body.data.name,
-      role: 'ADMIN',
-      authProvider: 'GOOGLE_OAUTH',
-      status: 'PENDING_SETUP',
-    },
-  })
-
-  return apiSuccess({ message: 'Admin created. Link Google account and set up TOTP.', id: admin.id })
-}
-```
-
----
-
-## STEP 17 — Doctor Ban Workflow
+## STEP 16 — Doctor Ban Workflow
 
 Execute in this exact order when admin bans a doctor:
 
@@ -726,10 +702,27 @@ Execute in this exact order when admin bans a doctor:
 
 ---
 
+## PII ENCRYPTION AT REST (V1)
+- **Encryption Algorithm:** AES-256-GCM at the application layer.
+- **Scope:** `User.phone` and `Admin.totpSecret` are encrypted before database insertion. The secret encryption key is stored in Vercel's encrypted environment variables.
+- **Lookup Support:** A `phoneHash` field stores the deterministic HMAC of the phone number. All reads/writes route through a single encryption service helper.
+- **Decryption Access Policy:** Decryption of the phone field is permitted for display in authorized Admin and Doctor panels, specifically for patient-contact and booking-verification purposes. This is a read-time decryption at the point of display, not a relaxation of the storage/lookup rules above.
+
+## DATA DELETION PROCESS (V1 — MANUAL)
+- **Flow:** Patient profile features a "Request Data Deletion" option. Selecting this creates a deletion request in the admin dashboard.
+- **SLA:** Admin manually soft-deletes or anonymizes the user record within a committed 30-day window.
+
+## DOCTOR NMC REGISTRATION VERIFICATION SOP
+- **Onboarding:** Doctor submits NMC registration number + certificate photo/scan.
+- **Approval:** Admin verification screen displays details side-by-side. The approval button is enabled ONLY after the admin types a manual verification confirmation note (`verificationNote`).
+- **Enforcement:** The public doctor-search and profile API routes must filter `WHERE verificationStatus = 'APPROVED'` at the server route level. The database flag alone must never be trusted.
+
+---
+
 ## WHAT NOT TO BUILD
 
 ```
-❌ OAuth / Google / Facebook / Apple login
+❌ OAuth except Google OAuth for Doctors/Admin in V1
 ❌ Password-based authentication
 ❌ JWT in localStorage / sessionStorage / Zustand
 ❌ Admin TOTP bypass for any reason
@@ -738,6 +731,16 @@ Execute in this exact order when admin bans a doctor:
 ❌ Patient ban (only doctor ban in V1)
 ❌ Self-signed certificates in production
 ```
+
+---
+
+## V2 DEFERRED DESIGN NOTES
+
+### V2 Deferred — Full Multi-Admin RBAC
+When more than one person operates the platform, replace the V1 single-Admin model with: SUPER_ADMIN (one, full access + admin management) and ADMIN (created only via Super Admin invite, no admin-management access). Adds AdminRole/AdminStatus enums, invite flow (48-hour expiring token, emailed link, invitee sets up their own TOTP — Super Admin never sees it), a 2-stage verification process (status is `PENDING_SETUP` until both Google-linking and TOTP setup are completed), a private/unguessable Super Admin login URL (env-var configured, excluded from sitemap/robots.txt), a Manage Admins dashboard (resend invite, suspend/reactivate, "Reset TOTP" with a required typed justification note for the lost-device-and-codes last resort), and a full AdminAuditLog recording every admin action with actor, target, metadata, IP, and timestamp.
+
+### V2 Deferred — Automated DPDP Deletion
+Replace the V1 manual 30-day deletion process with a DeletionRequest model + daily cron job: immediate deletedAt set on request (reusing the existing field), a configurable retention window during which an Admin can reverse the request, then automated overwrite of identifying PII fields (not deletion of the row itself, to preserve referential integrity with historical booking records) once the window passes.
 
 ---
 

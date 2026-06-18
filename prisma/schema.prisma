@@ -18,11 +18,6 @@ enum AuthProvider {
   GOOGLE_OAUTH
 }
 
-enum UserStatus {
-  ACTIVE
-  PENDING_SETUP
-}
-
 enum VerificationStatus {
   PENDING_ACTIVATION
   PENDING_REVIEW
@@ -117,13 +112,13 @@ enum Gender {
 
 model User {
   id            String       @id @default(uuid())
-  phone         String       @unique
+  phone         String
+  phoneHash     String?      @unique
   name          String?
   email         String?      @unique
   role          Role         @default(PATIENT)
   googleId      String?      @unique
   authProvider  AuthProvider @default(PATIENT_OTP)
-  status        UserStatus   @default(ACTIVE)
   isActive      Boolean      @default(true)
   isBanned      Boolean      @default(false)
   bannedAt      DateTime?
@@ -138,8 +133,8 @@ model User {
   notifications Notification[]
   auditLogs     AuditLog[]
   waitlists     Waitlist[]
+  consentLogs   ConsentLog[]
 
-  @@index([phone])
   @@index([role])
   @@index([isActive])
   @@map("users")
@@ -204,6 +199,7 @@ model Doctor {
   receptionist3Phone      String?
 
   verificationStatus      VerificationStatus @default(PENDING_ACTIVATION)
+  verificationNote        String?
   verifiedAt              DateTime?
   verifiedBy              String?
   rejectionReason         String?
@@ -285,6 +281,7 @@ model DailyQueue {
 
 model QueueToken {
   id                String      @id @default(uuid())
+  idempotencyKey    String      @unique
   queueId           String
   patientId         String?
   tokenNumber       Int
@@ -458,3 +455,55 @@ model Speciality {
 
   @@map("specialities")
 }
+
+model Admin {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  googleId    String?  @unique
+  totpSecret  String   // @encrypted (application-layer AES-256-GCM)
+  totpEnabled Boolean  @default(false)
+  backupCodes BackupCode[]
+  createdAt   DateTime @default(now())
+  lastLoginAt DateTime?
+
+  @@map("admins")
+}
+
+model BackupCode {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  codeHash  String   // Hashed for security
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@map("backup_codes")
+}
+
+model RateLimitLog {
+  id          String   @id @default(cuid())
+  identifier  String
+  type        String   // "IP_OTP" | "PHONE_OTP"
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+
+  @@unique([identifier, type])
+  @@map("rate_limit_logs")
+}
+
+model ConsentLog {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  consentText    String   // Snapshot of the exact policy text agreed to
+  consentVersion String   // e.g. "TERMS_V1.0"
+  ipAddress      String
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@map("consent_logs")
+}
+

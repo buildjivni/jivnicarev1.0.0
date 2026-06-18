@@ -434,11 +434,12 @@ On AVAILABLE selection:
   → availabilityStatus = AVAILABLE
   → isAcceptingBookings = true (unless daily limit reached)
 
-On BREAK / BUSY selection:
+On BREAK selection:
   → availabilityStatus = ON_BREAK
   → breakMessage saved
   → isAcceptingBookings = false
   → Profile shows calm inline break message. No auto-cancel, queue order preserved.
+  *Note: The doctor cannot select or set a 'Queue Full' status manually. The system automatically computes and displays the 'Queue Full' / 'Fully Booked' badge on the profile and cards based on token count vs. daily limit (`totalTokensIssuedToday >= dailyTokenLimit`), and disables new bookings.*
 
 On OFFLINE selection (manual override / end-of-day reset):
   → availabilityStatus = OFFLINE
@@ -447,6 +448,10 @@ On OFFLINE selection (manual override / end-of-day reset):
   → Proactive push/in-app notification sent to all patients with today's bookings.
   → No auto-cancel — patients decide whether to cancel.
   → Profile remains visible for public discovery.
+
+**V1 Doctor Vacation Handling:**
+To handle vacations, planned closures, or holidays in V1, a doctor or receptionist must manually toggle their availability status to `OFFLINE` for the days they are unavailable.
+*Operational Risk:* This depends on manual action by the doctor or receptionist. If they forget to toggle their status to `OFFLINE`, patients will still be able to book tokens for that day. This is an accepted V1 trade-off, mitigated through operational reminders.
 ```
 
 ### Flow D6 — QR Sticker Download
@@ -827,6 +832,14 @@ Admin Insights:
 Health Check:
   GET /api/health
 ```
+
+---
+
+## V2 DEFERRED DESIGN NOTES
+
+### V2 Deferred — Blocked Dates & Schedule Overrides
+Replace the V1 OFFLINE-toggle vacation approach with a dedicated `ScheduleOverride` model (per-doctor, per-date, blocked boolean + optional reason) and a calendar UI under "Manage Availability → Block Dates." 
+*Implementation Requirement:* The booking-availability-check logic must query `ScheduleOverride` BEFORE falling back to the recurring `weeklySchedule`, and this check must run in both the search/availability display AND the booking-creation endpoint server-side — not just one of the two — so a blocked date can never be booked even via a stale client or direct API call.
 
 ---
 

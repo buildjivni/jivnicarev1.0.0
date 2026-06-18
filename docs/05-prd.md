@@ -132,9 +132,9 @@ Cannot do:
   - Override queue state machine rules
 ```
 
-### 6.3 Admin (JivniCare Superadmin)
+### 6.3 Admin (JivniCare Admin)
 ```
-Who:        JivniCare team — 1 superadmin + invited admins
+Who:        JivniCare team — Single Admin (no roles or invited admins in V1; Superadmin and multi-admin RBAC is deferred to V2)
 Can do:
   - Full platform monitoring dashboard (30s refresh)
   - View all active queues across all doctors
@@ -144,7 +144,6 @@ Can do:
   - Manage banned doctor's active tokens (cancel/transfer/close)
   - Onboard doctor directly (admin fills form → doctor OTP verifies)
   - Approve / reject emergency facility requests
-  - Invite other admins (email invite → TOTP setup)
   - Set platform pricing per doctor (fee, discount, tier, free until)
   - View search insights (top searches + zero result queries)
   - View doctor requests (leads from empty search state)
@@ -260,7 +259,7 @@ F48: Search insights (top searches + zero result queries)
 F49: Doctor requests list (leads from empty search)
 F50: Patient list + support search
 F51: System metrics page
-F52: Invite new admin (email → TOTP setup)
+F52: Invite new admin (email → TOTP setup) (Deferred to V2)
 F53: Audit log viewer
 ```
 

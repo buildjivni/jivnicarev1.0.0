@@ -145,7 +145,6 @@ jivnicare/
 │   │   │   │   ├── qr-sticker/route.ts
 │   │   │   │   └── export/route.ts
 │   │   │   └── admin/
-│   │   │       ├── setup/route.ts
 │   │   │       ├── stats/route.ts
 │   │   │       ├── queue-health/route.ts
 │   │   │       ├── doctors/
@@ -248,11 +247,7 @@ Layer 4 — Data (src/lib/prisma.ts + redis.ts)
   - **Registration (One-time):** Phone number verified via **2Factor.in OTP** (for identity verification and SMS reminders).
   - **Login (Every time after registration):** **Google OAuth ("Sign in with Google")** implemented via NextAuth.js / Auth.js. No passwords or forgot-password flows.
   - **Account Linking:** Google account is linked in Step 2 of registration to capture the email and Google ID.
-- **Admin-invited Admin Onboarding:**
-  - Existing admin invites new admin via phone number.
-  - System sends 2Factor.in OTP to verify identity.
-  - New admin completes Google OAuth linking + TOTP setup.
-  - Status is `PENDING_SETUP` until both Google-linking and TOTP are complete.
+- **Admin Access Model (V1):** V1 uses a single Admin account authenticated via Google OAuth + TOTP. No invite flow exists in V1 — see 02-security-access.md for the full authentication specification. A multi-admin invite flow is deferred to V2 — see the V2 note in 02-security-access.md.
 
 ---
 
@@ -306,7 +301,6 @@ GET  /api/doctor/export             → Export patient data PDF (max 31 days)
 
 ### Admin Routes (auth required — ADMIN role — rate limited: 200/hr)
 ```
-POST /api/admin/setup               → First admin setup (one-time)
 GET  /api/admin/stats               → Platform stats (30s refresh)
 GET  /api/admin/queue-health        → All active queues monitor
 GET  /api/admin/doctors             → Doctor list with filters
@@ -344,6 +338,14 @@ ATOMIC BOOKING (race condition prevention):
   3. Increment totalTokens
   4. Create QueueToken with tokenNumber = totalTokens
   All in one transaction — concurrent requests safe
+
+BOOKING IDEMPOTENCY (duplicate prevention):
+  To prevent duplicate bookings from network failures:
+  1. The client generates a unique UUID `idempotencyKey` when the booking page first renders (not on submission).
+  2. The `idempotencyKey` is sent in the body of the `POST /api/patient/book` request.
+  3. The server checks the `QueueToken` table. If a token with the same `idempotencyKey` already exists, the server returns the existing token details (status 200) immediately.
+  4. SMS notification dispatch, in-app notification creation, and audit log writes must all be skipped on this path — they already occurred on the original successful request. Only a genuinely new booking triggers these side effects.
+  5. Retries from the client after a connection drop are resolved safely without double-booking or hitting cap limits.
 
 BIDIRECTIONAL ADVANCE:
   Doctor clicks "Call Next":
@@ -708,6 +710,13 @@ PHASE 7 — Launch:
     Antigravity  → Final code review before production merge
 ```
 
+
+---
+
+## V2 DEFERRED DESIGN NOTES
+
+### V2 Deferred — API Versioning
+API routes remain unversioned (`/api/patient/*`, `/api/doctor/*`, `/api/admin/*`) for V1, since no external client exists yet that could be broken by a change. Add `/api/v1/` namespacing BEFORE any native mobile app or other non-web client begins development — retrofitting versioning after such a client ships is far more disruptive than adding it before.
 
 ---
 

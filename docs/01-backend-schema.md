@@ -73,11 +73,6 @@ enum AuthProvider {
   GOOGLE_OAUTH
 }
 
-enum UserStatus {
-  ACTIVE
-  PENDING_SETUP
-}
-
 enum VerificationStatus {
   PENDING_ACTIVATION
   PENDING_REVIEW
@@ -91,6 +86,7 @@ enum AvailabilityStatus {
   ON_BREAK
   OFFLINE
 }
+// Note: AvailabilityStatus has exactly 3 values. "Queue Full" is never a stored database value — it is computed at render time as: totalTokensIssuedToday >= dailyTokenLimit.
 
 enum QueueStatus {
   ACTIVE
@@ -179,13 +175,13 @@ enum Gender {
 ```prisma
 model User {
   id            String       @id @default(uuid())
-  phone         String       @unique
+  phone         String       // @encrypted (application-layer AES-256-GCM, key in Vercel env vars)
+  phoneHash     String?      @unique // Deterministic HMAC of plaintext phone, used for lookup
   name          String?
   email         String?      @unique
   role          Role         @default(PATIENT)
   googleId      String?      @unique
   authProvider  AuthProvider @default(PATIENT_OTP)
-  status        UserStatus   @default(ACTIVE)
   isActive      Boolean      @default(true)
   isBanned      Boolean      @default(false)
   bannedAt      DateTime?
@@ -200,12 +196,13 @@ model User {
   notifications Notification[]
   auditLogs     AuditLog[]
   waitlists     Waitlist[]
+  consentLogs   ConsentLog[]
 
-  @@index([phone])
   @@index([role])
   @@index([isActive])
   @@map("users")
 }
+// Note: All reads/writes of @encrypted fields (like User.phone and Admin.totpSecret) MUST go through a single shared encrypt/decrypt service wrapper function, never scattered inline.
 ```
 
 ### Table 2: auth_sessions
@@ -278,6 +275,7 @@ model Doctor {
 
   // Verification
   verificationStatus      VerificationStatus @default(PENDING_ACTIVATION)
+  verificationNote        String?            // Admin's manual NMC verification confirmation note
   verifiedAt              DateTime?
   verifiedBy              String?
   rejectionReason         String?
@@ -373,6 +371,7 @@ model DailyQueue {
 ```prisma
 model QueueToken {
   id                String      @id @default(uuid())
+  idempotencyKey    String      @unique     // UUID generated on form render to prevent duplicate bookings
   queueId           String
   patientId         String?     // NULL for anonymous walk-in
   tokenNumber       Int         // NEVER changes after creation
@@ -577,6 +576,76 @@ model Speciality {
 
   @@map("specialities")
 }
+
+### Table 15: admins
+```prisma
+model Admin {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  googleId    String?  @unique
+  totpSecret  String   // @encrypted (application-layer AES-256-GCM, key in Vercel env vars)
+  totpEnabled Boolean  @default(false)
+  backupCodes BackupCode[]
+  createdAt   DateTime @default(now())
+  lastLoginAt DateTime?
+
+  @@map("admins")
+}
+// Note: This is intentionally a single-admin model in V1 (no roles/tiers) because there is currently one operator. Multi-admin RBAC is deferred (see V2 note in 02-security-access.md).
+```
+
+### Table 16: backup_codes
+```prisma
+model BackupCode {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  codeHash  String   // Hashed for security
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@map("backup_codes")
+}
+```
+
+### Table 17: rate_limit_logs
+```prisma
+model RateLimitLog {
+  id          String   @id @default(cuid())
+  identifier  String
+  type        String   // "IP_OTP" | "PHONE_OTP"
+  count       Int      @default(1)
+  windowStart DateTime @default(now())
+
+  @@unique([identifier, type])
+  @@map("rate_limit_logs")
+}
+```
+
+### Table 18: consent_logs
+```prisma
+model ConsentLog {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  consentText    String   // Snapshot of the exact policy text agreed to
+  consentVersion String   // e.g. "TERMS_V1.0"
+  ipAddress      String
+  createdAt      DateTime @default(now())
+
+  @@index([userId])
+  @@map("consent_logs")
+}
+// Note: This is the V1-scope consent model; a richer multi-type ConsentRecord + automated deletion is deferred to V2.
+```
+
+### V2 Deferred — Schema Additions (not implemented in V1)
+- ScheduleOverride model (per-doctor blocked dates) — V1 uses the existing OFFLINE status as a manual substitute. See V2 note in 06-web-flow.md for full design.
+- AdminRole/AdminStatus enums, invite-token fields, AdminAuditLog model — full multi-admin RBAC. See V2 note in 02-security-access.md for full design.
+- Richer ConsentRecord model + DeletionRequest model + automated hard-delete cron — replaces the V1 ConsentLog above once volume justifies it.
 ```
 
 ---

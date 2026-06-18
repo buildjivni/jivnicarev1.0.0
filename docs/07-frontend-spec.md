@@ -817,7 +817,72 @@ ARIA live regions: for 30s polling updates (screen reader safe)
 
 ---
 
-## 12. PWA INSTALL PROMPT
+## 12. ADMIN SECURITY COMPONENTS (V1)
+
+```
+TOTP Setup Screen (/admin/setup-totp):
+  Visuals:
+    - Centered card containing JivniCare brand header.
+    - QR Code component (rendered via qrcode.react).
+    - Manual Base32 secret code fallback block (with "Copy Secret" button).
+    - Form Input: 6-digit confirmation code field with autofocus.
+    - CTA: [Verify and Enable TOTP] (disabled until 6 digits entered).
+    - Error message text block under input for failed validations.
+
+Backup Codes Display Screen (/admin/backup-codes):
+  Visuals:
+    - 2-column grid showing 10 backup codes in monospaced font.
+    - Warning banner: "Save these codes. They are shown ONLY once and cannot be recovered."
+    - Actions:
+      - [Download Codes] (text download)
+      - [Copy to Clipboard]
+    - Mandatory Acknowledgment Checkbox:
+      - "I have saved my backup codes securely."
+    - CTA: [Proceed to Dashboard] (disabled until checkbox is ticked).
+
+TOTP Login Entry Form (/admin/login-totp):
+  Visuals:
+    - 6-digit code input box (segmented format preferred).
+    - Subtext: "Enter verification code from your authenticator app."
+    - CTA: [Verify Code]
+    - Recovery Link: "Use a backup code instead" (links to /admin/login-backup).
+
+Backup Code Entry Screen (/admin/login-backup):
+  Visuals:
+    - Single input field for 8-character monospaced code.
+    - Subtext: "Enter one of your unused backup codes."
+    - CTA: [Login]
+    - Link: "Back to TOTP" (links to /admin/login-totp).
+
+Admin settings "Security" panel (/admin/settings#security):
+  Visuals:
+    - Current TOTP Status: "MFA Active 🟢"
+    - Backup codes remaining counter: "X codes left"
+    - CTA: [Regenerate Backup Codes]
+      - Triggering opens a modal requiring confirmation via current TOTP or active backup code before generating new codes.
+
+Admin Doctor Verification List Screen (/admin/doctors?status=pending):
+  Visuals:
+    - Queue layout of pending doctor registrations.
+    - Grid columns: Doctor Name, Speciality, Registration Number, Submission Date, Actions.
+    - Action CTA: [Review Application] (redirects to detail review page).
+    - Status badge: "PENDING_REVIEW" in yellow.
+
+Doctor Verification Detail Screen (/admin/doctors/[id]/verify):
+  Visuals:
+    - Split-screen side-by-side layout:
+      - Left Panel: Submitted doctor profile details (Name, phone, email, speciality) and the typed NMC Registration Number.
+      - Right Panel: Registration certificate document preview (Cloudinary PDF/image viewer).
+    - Form Section (below panels):
+      - Text Input: Manual verification confirmation note (`verificationNote`) with placeholder "Type verification details here (mandatory)...".
+      - CTA Row:
+        - [Approve Doctor] (Primary Green, disabled until `verificationNote` is filled).
+        - [Reject Application] (Secondary Red, triggers modal for rejection reason).
+```
+
+---
+
+## 13. PWA INSTALL PROMPT
 
 ```
 Show "Add to Home Screen" prompt:
@@ -849,6 +914,22 @@ RULE AR-08: Use apiSuccess()/apiError() in all route handlers
 RULE AR-09: Never show raw error messages from server
 RULE AR-10: All state transitions via service layer only
 ```
+
+---
+
+## V2 DEFERRED DESIGN NOTES
+
+### V2 Deferred — Manage Admins Dashboard
+Super Admin dashboard features a dedicated "Manage Admins" section:
+- Inviting: Super Admin invites a new admin by entering their name and email, creating a `PENDING_INVITE` record.
+- Invite Accepting: Verification email link goes to `/admin/accept-invite?token={inviteToken}`, prompting the user to authenticate with Google OAuth, set up their TOTP, and save their backup codes.
+- Management Actions: Resend invite (generates a new token), suspend/reactivate admin status, and "Reset TOTP" action (requiring a typed audit reason note) to handle device loss recovery.
+
+### V2 Deferred — Doctor Vacation Calendar Component
+A calendar grid UI in the Doctor dashboard under "Manage Availability → Block Dates":
+- Layout: Monthly grid view.
+- Actions: Tap date to toggle block/unblock status; "Block a Range" multi-date modal action.
+- Metadata: "Reason for block" input field (with presets: Holiday, Illness, Clinic Maintenance, Custom text).
 
 ---
 
