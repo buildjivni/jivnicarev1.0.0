@@ -44,35 +44,28 @@ NOT:
 ## 2. LOGO ASSETS — ALL VARIANTS
 
 ```
-Logos provided by founder (upload at development time):
+Logos provided by founder (stored in public/brand/):
 
-1. Circular logo
-   Use: Favicon (16px, 32px, 64px)
-        PWA icon (192px, 512px)
-        Browser tab icon
-        App loading screen center
+1. `logo-horizontal-wordmark.png`
+   Use: Desktop header (primary), login page, footers, email headers, about page, marketing materials, og:image (social share).
 
-2. Icon only (lung+person shape, blue+green)
-   Use: Mobile header (32px)
-        Small spaces where wordmark doesn't fit
-        WhatsApp/social profile picture
-        Watermark on clinic photo placeholder
+2. `logo-icon-master-transparent.png` (2000×2000)
+   Use: Master source for any custom export; also used in PDF templates (QR sticker branding, letterhead).
 
-3. Muhar (seal) type logo
-   Use: PDF exports (patient data export header)
-        QR sticker (stamp-feel, authority)
-        Official documents
+3. `logo-icon-512.png` and `logo-icon-192.png`
+   Use: PWA manifest icons, PWA splash screen.
 
-4. Icon + Wordmark (main logo)
-   Use: Desktop header (primary)
-        Login page
-        About page
-        Marketing materials
-        og:image (social share)
+4. `logo-icon-180.png`
+   Use: Apple touch icon.
 
-5. Wordmark only
-   Use: Footer (smaller spaces)
-        Email headers
+5. `logo-icon-32.png` and `logo-icon-16.png`
+   Use: Favicons, browser tab icon.
+
+6. `logo-icon-circle.png`
+   Use: Plain circle badge (avatar-style placements).
+
+7. `logo-icon-circle-bordered.png`
+   Use: Circle badge with blue ring (social profile picture, app store listing icon).
 
 RULES:
   Light backgrounds → colored logo (blue+green)
@@ -87,16 +80,11 @@ RULES:
 ## 3. COLOR PALETTE — FROM LOGO
 
 ```
-Extract exact hex codes from provided logo files at development time.
-Approximate values based on logo analysis:
+The following hex codes are confirmed as the final brand colors matching the actual extracted logo colors:
 
-Primary Blue:    ~#5B9BD5  (logo icon left half — person/head)
-Primary Green:   ~#4E9B5A  (logo icon right half — life/health)
-Brand Navy:      ~#1B3F6B  (dark blue for admin, QR sticker, headers)
-
-IMPORTANT: When logo files are uploaded, use eyedropper/color picker
-to get EXACT hex values from the logo. These approximate values
-are for reference only. Logo colors are the source of truth.
+Primary Blue:    #5B9BD5  (logo icon left half — person/head)
+Primary Green:   #4E9B5A  (logo icon right half — life/health)
+Brand Navy:      #1B3F6B  (dark blue for admin, QR sticker, headers — note: Brand Navy is a UI-chrome accent only and does not appear in the logo artwork itself)
 
 Color meaning:
   Blue  → Trust, reliability, medical professionalism
@@ -113,21 +101,21 @@ Color meaning:
 Built from logo colors:
 
 PRIMARY (Blue family):
-  Base:    [exact from logo]    → Buttons, links, CTAs
-  Hover:   [5% darker]         → Button hover
-  Active:  [10% darker]        → Button pressed
-  Light:   [95% lighter tint]  → Blue bg sections, highlights
+  Base:    #5B9BD5    → Buttons, links, CTAs
+  Hover:   #4B8BC5    → Button hover
+  Active:  #3B7BB5    → Button pressed
+  Light:   #F0F7FC    → Blue bg sections, highlights
 
 SUCCESS / HEALTH (Green family):
-  Base:    [exact from logo]    → Verified, online, success, health
-  Hover:   [5% darker]
-  Active:  [10% darker]
-  Light:   [95% lighter tint]  → Green bg sections
+  Base:    #4E9B5A    → Verified, online, success, health
+  Hover:   #3E8B4A
+  Active:  #2E7B3A
+  Light:   #F0F8F2    → Green bg sections
 
 STATUS COLORS:
   Error:   #DC2626  → Validation errors, rejected, cancelled
   Warning: #F59E0B  → Pending, break status, attention needed
-  Info:    [brand blue light]
+  Info:    #F0F7FC  → Informational (blue light)
 
 NEUTRAL (Light only — NO DARK grays):
   Page BG:      #F8F9FA   → Main page background (off-white, easy on eyes)
@@ -279,36 +267,34 @@ OFFLINE:
 
 ```
 PATIENT PAGES:
-  Header mobile:    Icon only (32px) — left side
-  Header desktop:   Icon + Wordmark (140px wide) — left side
-  Login page:       Icon + Wordmark (160px) — centered above form
-  Footer:           Wordmark only
-  Browser tab:      Circular logo as favicon
+  Header mobile:    logo-icon-circle.png (32px) — left side
+  Header desktop:   logo-horizontal-wordmark.png (140px wide) — left side
+  Login page:       logo-horizontal-wordmark.png (160px) — centered above form
+  Footer:           logo-horizontal-wordmark.png
+  Browser tab:      logo-icon-32.png as favicon
 
 DOCTOR PAGES:
-  Header:           Icon + Wordmark — left side
+  Header:           logo-horizontal-wordmark.png — left side
   Dashboard:        Same as patient header
 
 ADMIN PAGES:
-  Header:           White version of Icon + Wordmark
-                    (navy gradient background)
-  Login:            Icon + Wordmark (colored) on white right panel
-                    White logo on navy left panel
+  Header:           White version of logo-horizontal-wordmark.png (navy gradient background)
+  Login:            logo-horizontal-wordmark.png (colored) on white right panel / white logo on navy left panel
 
 PDF EXPORTS:
-  Patient data PDF: Muhar logo — top left (authority feel)
-  QR Sticker:       White wordmark + icon on navy background
+  Patient data PDF: logo-icon-master-transparent.png — top left (authority feel)
+  QR Sticker:       logo-icon-master-transparent.png on navy background
 
 PWA:
-  Home screen icon: Circular logo (192px, 512px)
-  Splash screen:    Circular logo centered on white
+  Home screen icon: logo-icon-512.png / logo-icon-192.png
+  Splash screen:    logo-icon-512.png centered on white
 
 OG IMAGE (social share):
-  Icon + Wordmark on light blue background
+  logo-horizontal-wordmark.png on light blue background
   Size: 1200x630px
 
 EMAIL:
-  Header: Icon + Wordmark (200px wide) on white background
+  Header: logo-horizontal-wordmark.png (200px wide) on white background
 ```
 
 ---
@@ -357,7 +343,7 @@ ANIMATIONS — SUBTLE ONLY:
 ❌ Aggressive animations (calm = trust)
 ❌ Too many colors (blue + green + neutrals only)
 ❌ Small tap targets (< 44px) — Bihar users on mid-range phones
-❌ Text over busy images (always semi-transparent overlay)
+❌ Text over busy images. No text, labels, watermarks, or badges may be embedded in any uploaded photograph or logo image. All status badges (AVAILABLE/ON_BREAK/OFFLINE), verified checkmarks, fee tags, and emergency-service badges must be rendered as separate HTML/CSS components positioned over or beside the image — never baked into image pixels. This applies to all future doctor profile photos and clinic/hospital photos, not just the logo.
 ❌ Fonts other than Poppins/Inter/Noto Sans Devanagari
 ❌ Icons from any library other than Lucide React
 ❌ Gradients except: brand button, admin header, Early Partner badge
