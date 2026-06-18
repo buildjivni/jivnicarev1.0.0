@@ -52,6 +52,18 @@ async function main() {
       create: speciality,
     });
   }
+
+  // Seed Admin bootstrap record
+  await prisma.admin.upsert({
+    where: { email: 'admin@jivnicare.com' },
+    update: {},
+    create: {
+      email: 'admin@jivnicare.com',
+      name: 'System Administrator',
+      totpSecret: '', // Populated during first-time TOTP setup
+      totpEnabled: false,
+    },
+  });
 }
 
 main()
