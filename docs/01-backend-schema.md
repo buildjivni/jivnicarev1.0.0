@@ -608,8 +608,14 @@ const internalDoctorId = result[0].id
 // prisma/seed.ts
 
 const districts = [
-  { name: 'Jamui',   state: 'Bihar'       },
-  { name: 'Deoghar', state: 'Jharkhand'   },
+  { name: 'Jamui',       state: 'Bihar',     isActive: true  },
+  { name: 'Deoghar',     state: 'Jharkhand', isActive: true  },
+  { name: 'Gaya',        state: 'Bihar',     isActive: false },
+  { name: 'Muzaffarpur', state: 'Bihar',     isActive: false },
+  { name: 'Darbhanga',   state: 'Bihar',     isActive: false },
+  { name: 'Siwan',       state: 'Bihar',     isActive: false },
+  { name: 'Rohtas',      state: 'Bihar',     isActive: false },
+  { name: 'Bhagalpur',   state: 'Bihar',     isActive: false },
 ]
 
 const specialities = [
