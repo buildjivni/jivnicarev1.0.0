@@ -289,6 +289,8 @@ model Doctor {
   emergencyApprovedAt     DateTime?
   emergencyApprovedBy     String?
   emergencyPendingRequest Boolean            @default(false)  // re-verification pending
+  offersEmergency         Boolean            @default(false)
+  emergencyFee            Int?
 
   // Schedule
   // Format: [{ day: "MON", startTime: "09:00", endTime: "14:00" }]
@@ -678,6 +680,10 @@ NO_SHOW remains strictly terminal — no reactivation transition exists. A late-
 ```
 Regular Queue:   tokenNumber = 1, 2, 3...
 Emergency Queue: tokenNumber = E1, E2, E3... (separate DailyQueue with type=EMERGENCY)
+                 * Emergency queue entries (E1, E2, E3...) can only be created by doctor/receptionist via walk-in.
+                 * The patient-facing app has no emergency booking option or button.
+                 * Doctors offering emergency consultations display this as information only on their public profile:
+                   badge ("⚡ Emergency services available — ₹[emergencyFee]") plus highlighted clinic contact number, with no booking button.
 Walk-in tokens:  Same sequence as regular, type=WALKIN flag
 Doctor isolation: Each queue tied to doctorId + date + type (unique constraint)
 Atomic booking:  Prisma $transaction with SELECT FOR UPDATE — no duplicate numbers

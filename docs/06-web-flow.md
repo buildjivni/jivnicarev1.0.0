@@ -105,6 +105,12 @@ BELOW FOLD:
     Address + Owner Name
     Timing (from schedule)
     [Share Profile] button → copy link + QR preview
+  Emergency Consultation Info (Informational Badge):
+    If offersEmergency is true:
+      • Display informational badge: "⚡ Emergency services available — ₹[emergencyFee]"
+      • Display highlighted clinic contact number for emergency inquiries
+      • No emergency booking button or emergency CTA exists on the patient-facing app/profile.
+      • Emergency queue tokens (E1, E2, E3...) can only be created by doctor/receptionist via the clinic walk-in dashboard.
   
 QUEUE STATUS DISPLAY:
   AVAILABLE:  🟢 LIVE · X ahead

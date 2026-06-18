@@ -214,6 +214,8 @@ model Doctor {
   emergencyApprovedAt     DateTime?
   emergencyApprovedBy     String?
   emergencyPendingRequest Boolean            @default(false)
+  offersEmergency         Boolean            @default(false)
+  emergencyFee            Int?
 
   weeklySchedule          Json?
   bookingWindowStart      String?
