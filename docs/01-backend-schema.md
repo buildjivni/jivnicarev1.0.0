@@ -668,6 +668,7 @@ BOOKED → AWAITING_ARRIVAL → PAYMENT_PENDING → READY → CALLED → IN_CONS
 Cancellable states: BOOKED, AWAITING_ARRIVAL, PAYMENT_PENDING, READY
 Auto-expire states: BOOKED, AWAITING_ARRIVAL (04:00 AM IST cron)
 RULE: No reverse transitions. Ever. No exceptions.
+NO_SHOW remains strictly terminal — no reactivation transition exists. A late-arriving patient is registered as a new walk-in token by clinic staff (which will auto-link via walk-in lookup if they are a registered patient).
 ```
 
 ---
